@@ -6,7 +6,7 @@ PROGRAMMER = usbasp
 all: compile objhex
 
 compile:
-	avr-g++ -Wall -std=c++11 -mmcu=$(CC_MCU) main.cpp -o obj.o
+	avr-g++ -Wall -std=c++11 -funsigned-char -mmcu=$(CC_MCU) main.cpp -o obj.o
 
 objhex:
 	avr-objcopy -j .text -j .data -O ihex obj.o out.hex
