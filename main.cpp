@@ -18,18 +18,19 @@
 #define SIZE 128;
 
 size_t offset = 0;
-
+CyclicBuffer<char*, 128> disp_buffer;
 
 ISR(TIMER1_COMPA_vect) {
   if (offset++ + 1 >= CHAR_WIDTH) {
     offset = 0;
+    //disp_buffer.next();
   }
   PORTB ^= (1 << PB2);
 }
 
 char A[CHAR_WIDTH] = { '\xfe', '\x11', '\x11', '\x11', '\x11', '\xfe' };
 char SPACE[CHAR_WIDTH] = { '\x0', '\x0', '\x0', '\x0', '\x0', '\x0' };
-  
+
 inline void start_timer0() {
   OCR1A = 15625;
   
@@ -46,7 +47,7 @@ inline void start_timer0() {
 }
 
 void display_decoded(char* decoded) {
-  
+  disp_buffer.push(decoded);
 }
 
 int main(int argc, char** argv) {
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
   
   unsigned char c = 0;
   while (1) {
-    //c = display_queue.current()[offset];    
+    c = disp_buffer.current()[offset];    
     
     PORTB = 0x3 & c;
     PORTC = c >> 2;
