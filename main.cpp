@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "CyclicBuffer.h"
 
-#define DISP0 PB0
+#define DISP0 PB2
 #define DISP1 PB1
 #define DISP2 PC0
 #define DISP3 PC1
@@ -17,10 +17,18 @@
 
 #define SIZE 128
 
+#define TIMER0_PRESCALER ((1 << CS02))
+//  | (1 << CS00)
+#define TIMER1_PRESCALER ((1 << CS12))
+//  | (1 << CS10)
+
 size_t offset = 0;
 unsigned char* disp_buffer[SIZE] = { 0 };
 size_t buf_pos = 0;
 size_t buf_size = 0;
+
+size_t ovf = 0;
+size_t ints = 0;
 
 void add_char(unsigned char* chr) {
   disp_buffer[buf_size++] = chr;
@@ -33,51 +41,95 @@ void next_char() {
   }
 }
 
+void next_offset() {
+  if (offset++ + 1 >= CHAR_WIDTH) {
+    offset = 0;
+    next_char();
+  }
+  ++ovf;
+  DDRD |= (1 << PD0);
+  PORTD ^= (1 << PD0);
+}
+
+inline void wait_tim0(unsigned char time) {
+  TIMSK |= 1 << TOIE0;
+  TCNT0 = 0xFF - time;
+  TCCR0 = (1 << CS02) | (1 << CS00);
+}
+
 ISR(TIMER1_COMPA_vect) {
   if (offset++ + 1 >= CHAR_WIDTH) {
     offset = 0;
     next_char();
   }
-  PORTB ^= (1 << PB2);
+  ++ovf;
+  DDRD |= (1 << PD0);
+  PORTD ^= (1 << PD0);
 }
+
+short icr = 0;
+
+ISR(TIMER1_CAPT_vect) {
+  icr = ICR1;
+  TCNT1 = 0;
+}
+
+/*ISR(TIMER0_OVF_vect) {
+  GICR |= 1 << INT0;
+  TCCR0 = 0;
+  
+  if (offset++ + 1 >= CHAR_WIDTH) {
+    offset = 0;
+    next_char();
+  }
+  ++ovf;
+  DDRD |= (1 << PD0);
+  PORTD ^= (1 << PD0);
+}*/
 
 unsigned char A[CHAR_WIDTH] = { '\xfe', '\x11', '\x11', '\x11', '\x11', '\xfe' };
 unsigned char C[CHAR_WIDTH] = { '\xff', '\x81', '\x81', '\x81', '\x81', '\x81' };
 unsigned char SPACE[CHAR_WIDTH] = { '\x0', '\x0', '\x0', '\x0', '\x0', '\x0' };
 
-inline void start_timer0() {
-  OCR1A = 0xFFF;//15625;
+inline void start_timer1() {
+  TCCR1B |= (0 << ICES1) | (1 << ICNC1);
+  TCCR1B |= TIMER1_PRESCALER;
   
-  TCCR1B |= (1 << WGM12);
-  // Mode 4, CTC on OCR1A
-  
-  TIMSK |= (1 << OCIE1A);
-  //Set interrupt on compare match
-  
-  TCCR1B |= (1 << CS11) | (1 << CS10);
-  // set prescaler to 1024 and start the timer
-  
-  sei();
+  TIMSK |= (1 << TICIE1);
 }
 
 int main(int argc, char** argv) {
-  DDRB = (1 << DDB1) | (1 << DDB0) | (1 << DDB2);
+  DDRB = (1 << DDB1) | (0 << DDB0) | (1 << DDB2);
   DDRC = 0x7f;
 
-  start_timer0();
+  PORTB = (1 << PB0);
+  
+  start_timer1();
+
+  sei();
 
   add_char(A);
   add_char(SPACE);
   add_char(C);
   add_char(SPACE);
-  
-  unsigned char c = 0;
-  unsigned char* p = 0;
+
+  unsigned short interval = 0, c = 0;
+  icr = 0xffff;
   while (1) {
-    p = disp_buffer[buf_pos];
-    c = p[offset];    
-    
-    PORTB = 0x3 & c;
+    interval = icr / 360 + 1;
+    c = disp_buffer[buf_pos][offset];
+  
+    TCNT0 = 0xff - interval;
+    TCCR0 |= TIMER0_PRESCALER;
+    for (int i = 1; i < 0xff; ++i) {
+      while (!(TIFR & (1 << TOV0)));
+      TIFR &= 1 << TOV0;
+      TCNT0 = 0xff - interval;
+    }
+    TCCR0 &= ~TIMER0_PRESCALER;
+    next_offset();
+
+    PORTB = (0x3 & c) << 1;
     PORTC = (c & 0xfc) >> 2;
   }
   return 0;
