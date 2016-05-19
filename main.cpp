@@ -14,7 +14,7 @@
 
 #define TIMER0_PRESCALER ((1 << CS02))
 //  | (1 << CS00)
-#define TIMER1_PRESCALER ((1 << CS12))
+#define TIMER1_PRESCALER ((1 << CS10))
 //  | (1 << CS10)
 
 size_t offset = 0;
