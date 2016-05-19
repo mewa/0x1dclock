@@ -120,7 +120,9 @@ int main(int argc, char** argsv) {
   while (1) {
     interval = icr / 360 + 1;
     c = disp_buffer[buf_pos][offset];
-  
+    PORTC += 1;
+    continue;
+    
     TCNT0 = 0xff - interval;
     TCCR0 |= TIMER0_PRESCALER;
     for (int i = 1; i < 0xff; ++i) {
@@ -133,7 +135,6 @@ int main(int argc, char** argsv) {
 
     PORTB = (0x3 & c) << 1;
     PORTC = (c & 0xfc) >> 2;
-    PORTC |= 1;
   }
   return 0;
 }
