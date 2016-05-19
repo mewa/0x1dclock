@@ -12,9 +12,9 @@
 
 #define SIZE 128
 
-#define TIMER0_PRESCALER ((1 << CS02))
+#define TIMER0_PRESCALER ((1 << CS01))
 //  | (1 << CS00)
-#define TIMER1_PRESCALER ((1 << CS10))
+#define TIMER1_PRESCALER ((1 << CS11))
 //  | (1 << CS10)
 
 size_t offset = 0;
@@ -133,6 +133,7 @@ int main(int argc, char** argsv) {
 
     PORTB = (0x3 & c) << 1;
     PORTC = (c & 0xfc) >> 2;
+    PORTC |= 1;
   }
   return 0;
 }
